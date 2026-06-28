@@ -1,0 +1,45 @@
+# env
+.env
+
+# python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# venv
+venv/
+.venv/
+env/
+
+# logs / saves
+*.txt
+*.log
+chats/
+
+# session data (generated at runtime, may contain private info)
+data/sessions/
+
+# build artifacts
+main.zip
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+
+
+# project notes
+project structure.txt

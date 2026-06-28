@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "cortexfeed",
+  "version": "1.1",
+  "description": "Auto-read AI chats and build prompts with cortexfeed",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboardWrite",
+    "tabs",
+    "storage",
+    "windows"
+  ],
+  "host_permissions": [
+    "http://localhost:5050/*",
+    "http://127.0.0.1:5050/*",
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "cortexfeed"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "build-and-paste": {
+      "suggested_key": {
+        "default": "Alt+C"
+      },
+      "description": "Build + paste prompt into current AI chat (no popup needed)"
+    },
+    "route-and-paste": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Classify task, open best AI tab, paste prompt automatically"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chatgpt.com/g/*",
+        "https://chatgpt.com/g/g-p-*/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

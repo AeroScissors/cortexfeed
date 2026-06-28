@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>cortexfeed</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 380px;
+      background: #0d1020;
+      color: #c8d6f0;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    .header {
+      background: #0d1020;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { font-size: 20px; color: #8b7cf7; }
+    .logo-text {
+      font-size: 12px; letter-spacing: 3px; font-weight: 700;
+      color: #e8eaff;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .btn-refresh {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.3);
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px;
+      transition: all 0.2s;
+    }
+    .btn-refresh:hover {
+      background: rgba(139,124,247,0.12);
+      border-color: rgba(139,124,247,0.3);
+      color: #8b7cf7;
+    }
+
+    .status {
+      font-size: 10px; padding: 5px 12px; border-radius: 20px;
+      background: rgba(255,60,60,0.08);
+      color: #ff6060;
+      border: 1px solid rgba(255,60,60,0.15);
+      display: flex; align-items: center; gap: 6px;
+      font-weight: 600; letter-spacing: 0.5px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #ff5050;
+      box-shadow: 0 0 6px rgba(255,80,80,0.6);
+    }
+    .status.online {
+      background: rgba(0,212,120,0.08);
+      color: #00d47a;
+      border-color: rgba(0,212,120,0.2);
+    }
+    .status.online .status-dot {
+      background: #00d47a;
+      box-shadow: 0 0 6px rgba(0,212,120,0.6);
+    }
+
+    /* ── Body ─────────────────────────────────────────── */
+    .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Error / status card ──────────────────────────── */
+    .status-card {
+      display: none;
+      background: rgba(255,70,70,0.07);
+      border: 1px solid rgba(255,70,70,0.15);
+      border-radius: 12px;
+      padding: 12px 14px;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .status-card.visible { display: flex; }
+    .status-card-icon {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,70,70,0.15);
+      border: 1.5px solid rgba(255,100,100,0.3);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: #ff7070; font-size: 16px; font-weight: 700;
+    }
+    .status-card-body { flex: 1; }
+    .status-card-title { font-size: 13px; font-weight: 600; color: #ffaaaa; margin-bottom: 3px; }
+    .status-card-sub { font-size: 11px; color: rgba(255,150,150,0.6); line-height: 1.5; }
+
+    /* ── Conversation preview ─────────────────────────── */
+    #conv-preview {
+      font-size: 10px; color: rgba(255,255,255,0.15);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      padding: 0 2px;
+    }
+    #conv-preview.has-data { color: rgba(255,255,255,0.3); }
+
+    /* ── Context card ─────────────────────────────────── */
+    .context-card {
+      background: #131828;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 15px 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .ctx-label {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 10px; letter-spacing: 2px; font-weight: 700;
+      color: #8b7cf7;
+    }
+    .ctx-label i { font-size: 14px; }
+
+    /* ── Scrollable intent wrapper ────────────────────── */
+    .intent-wrap {
+      position: relative;
+    }
+    /* intent-scroll is just a positioning wrapper now — no overflow logic */
+    .intent-scroll {
+      position: relative;
+      padding-right: 30px;
+    }
+
+    textarea#intent {
+      background: none; border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      color: #f0f2ff;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 14px; font-weight: 600; line-height: 1.6;
+      resize: none; width: 100%; outline: none;
+      padding: 0 0 10px 0;
+      /* textarea handles its own clipping and scrolling */
+      min-height: 26px;
+      max-height: 96px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      transition: border-color 0.2s;
+    }
+    textarea#intent::-webkit-scrollbar { display: none; }
+    textarea#intent:focus { border-bottom-color: rgba(139,124,247,0.3); }
+    textarea#intent::placeholder { color: rgba(255,255,255,0.12); font-weight: 400; }
+
+    .scroll-btns {
+      position: absolute;
+      right: 0; top: 0; bottom: 10px;
+      display: flex; flex-direction: column;
+      justify-content: center; gap: 4px; width: 22px;
+    }
+    .scroll-btn {
+      background: rgba(139,124,247,0.08);
+      border: 1px solid rgba(139,124,247,0.18);
+      border-radius: 5px; color: rgba(139,124,247,0.5);
+      cursor: pointer; font-size: 10px; line-height: 1;
+      padding: 4px 0; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .scroll-btn:hover { color: #8b7cf7; background: rgba(139,124,247,0.18); }
+
+    /* ── File cards ───────────────────────────────────── */
+    input#files { display: none; } /* hidden, used by JS for data */
+
+    .file-cards { display: flex; flex-direction: column; gap: 5px; }
+
+    .file-card {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 9px; padding: 9px 10px;
+    }
+    .file-card-icon {
+      font-size: 18px; color: rgba(139,124,247,0.6);
+      flex-shrink: 0;
+    }
+    .file-card-body { flex: 1; min-width: 0; }
+    .file-card-name {
+      font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.75);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-card-meta { font-size: 9px; color: rgba(255,255,255,0.25); margin-top: 2px; letter-spacing: 0.3px; }
+    .file-card-copy {
+      background: none; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px; color: rgba(255,255,255,0.2);
+      cursor: pointer; font-size: 13px; padding: 5px 6px;
+      flex-shrink: 0; transition: all 0.15s;
+    }
+    .file-card-copy:hover { color: #8b7cf7; border-color: rgba(139,124,247,0.3); }
+
+    .no-files {
+      font-size: 10px; color: rgba(255,255,255,0.12);
+      padding: 2px 0; font-style: italic;
+    }
+
+    /* ── Route chip ───────────────────────────────────── */
+    .route-chip { display: flex; align-items: center; gap: 7px; }
+    .route-badge {
+      font-size: 9px; font-weight: 700; letter-spacing: 1px;
+      padding: 3px 9px; border-radius: 20px;
+      background: rgba(0,212,255,0.08); color: #00d4ff;
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+    .route-arrow { font-size: 11px; color: rgba(255,255,255,0.15); }
+    .route-sparkle { font-size: 13px; color: #8b7cf7; }
+    .route-ai { color: #00d4ff; font-size: 12px; font-weight: 700; }
+    #route-reason { display: none; }
+
+    /* ── Primary button ───────────────────────────────── */
+    #btn-build {
+      width: 100%; padding: 16px;
+      border: none; border-radius: 14px;
+      background: linear-gradient(90deg, #7c3af7 0%, #4a7af5 100%);
+      color: white; font-size: 13px; font-weight: 700;
+      cursor: pointer; letter-spacing: 2px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: 'Segoe UI', sans-serif;
+      box-shadow: 0 4px 24px rgba(100,70,255,0.3);
+    }
+    #btn-build:hover { opacity: 0.88; }
+    #btn-build:active { transform: scale(0.99); }
+    #btn-build:disabled {
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.15);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    #btn-build i { font-size: 18px; }
+    #btn-build .sub {
+      font-size: 10px; font-weight: 400;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 1px; display: block; margin-top: 2px;
+    }
+
+    /* ── Log ──────────────────────────────────────────── */
+    #log {
+      font-size: 10px; min-height: 14px; text-align: center;
+      letter-spacing: 0.5px; color: rgba(255,255,255,0.15);
+    }
+    #log.error   { color: #ff6060; }
+    #log.success { color: #00d47a; }
+    #log.info    { color: #8b7cf7; }
+
+    /* ── Advanced toggle ──────────────────────────────── */
+    .adv-toggle {
+      display: flex; align-items: center; cursor: pointer; user-select: none;
+    }
+    .adv-toggle::before, .adv-toggle::after {
+      content: ''; flex: 1; height: 1px;
+      background: rgba(255,255,255,0.06);
+    }
+    .adv-toggle span {
+      font-size: 10px; color: rgba(0,212,255,0.5);
+      padding: 0 12px; white-space: nowrap; letter-spacing: 1px;
+      transition: color 0.2s;
+    }
+    .adv-toggle:hover span { color: #00d4ff; }
+
+    /* ── Advanced panel ───────────────────────────────── */
+    .adv-panel { display: flex; flex-direction: column; gap: 8px; }
+
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 2px;
+      color: rgba(255,255,255,0.25);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .field-label i { font-size: 13px; }
+    .lbl-green { color: rgba(0,212,120,0.6); }
+    .lbl-red   { color: rgba(255,100,100,0.6); }
+    .lbl-amber { color: rgba(255,170,70,0.6); }
+
+    input[type="text"]:not(#files),
+    textarea:not(#intent),
+    select {
+      width: 100%;
+      background: #131828;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; color: #c8d6f0;
+      font-family: 'Segoe UI', sans-serif; font-size: 11px;
+      padding: 8px 10px; outline: none; resize: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:not(#files):focus,
+    textarea:not(#intent):focus,
+    select:focus { border-color: rgba(139,124,247,0.3); }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .field-with-copy { display: flex; align-items: center; gap: 6px; }
+    .field-with-copy input { flex: 1; }
+    .copy-btn {
+      background: #131828;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 7px; color: rgba(255,255,255,0.2);
+      padding: 7px 8px; cursor: pointer; font-size: 13px;
+      flex-shrink: 0; transition: all 0.2s;
+    }
+    .copy-btn:hover { color: #8b7cf7; border-color: rgba(139,124,247,0.3); }
+
+    /* Secondary buttons */
+    .btn-sec {
+      width: 100%; padding: 11px;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      background: #131828;
+      color: rgba(255,255,255,0.25);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+      letter-spacing: 1.5px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.2s; font-family: 'Segoe UI', sans-serif;
+    }
+    .btn-sec i { font-size: 15px; }
+    .btn-sec:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-sec:not(:disabled):hover {
+      border-color: rgba(139,124,247,0.3);
+      color: #8b7cf7;
+      background: rgba(139,124,247,0.06);
+    }
+    #btn-investigate:not(:disabled):hover {
+      border-color: rgba(0,212,120,0.3);
+      color: #00d47a;
+      background: rgba(0,212,120,0.05);
+    }
+    #btn-route:not(:disabled):hover {
+      border-color: rgba(0,212,255,0.3);
+      color: #00d4ff;
+      background: rgba(0,212,255,0.05);
+    }
+
+    /* Investigation result */
+    .invest-result {
+      display: none;
+      background: rgba(0,200,100,0.05);
+      border: 1px solid rgba(0,200,100,0.12);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .invest-result.visible { display: block; }
+    .invest-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+    .invest-stat {
+      background: rgba(255,255,255,0.03);
+      border-radius: 7px; padding: 7px 8px; text-align: center;
+    }
+    .invest-stat-val { font-size: 16px; font-weight: 700; color: #00d47a; }
+    .invest-stat-lbl { font-size: 9px; color: rgba(0,200,100,0.3); letter-spacing: 1px; margin-top: 1px; }
+    .invest-hypotheses { font-size: 10px; color: rgba(0,200,100,0.5); margin-top: 4px; }
+    .invest-hyp-item { padding: 3px 0; border-bottom: 1px solid rgba(0,200,100,0.08); }
+    .invest-hyp-item:last-child { border-bottom: none; }
+
+    /* Repo Intel */
+    .repo-card {
+      background: #131828;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .repo-header {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: 2px;
+      cursor: pointer; user-select: none;
+      color: rgba(0,212,170,0.4);
+      transition: color 0.2s;
+    }
+    .repo-header:hover { color: #00d4aa; }
+    .repo-toggle { margin-left: auto; font-size: 9px; }
+    .repo-answer {
+      display: none; margin-top: 8px;
+      background: rgba(0,212,170,0.04);
+      border: 1px solid rgba(0,212,170,0.1);
+      border-radius: 7px; padding: 8px;
+    }
+    .repo-cap { font-size: 9px; color: rgba(0,212,170,0.35); letter-spacing: 1px; margin-bottom: 4px; }
+    .repo-text { font-size: 11px; color: rgba(0,212,170,0.8); line-height: 1.6; white-space: pre-wrap; }
+    .repo-conf { font-size: 9px; color: rgba(0,212,170,0.2); margin-top: 4px; }
+    .btn-sm {
+      padding: 8px;
+      border: 1px solid rgba(0,212,170,0.1);
+      border-radius: 7px;
+      background: rgba(0,212,170,0.04);
+      color: rgba(0,212,170,0.4);
+      font-size: 11px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-family: 'Segoe UI', sans-serif; transition: all 0.2s;
+    }
+    .btn-sm:hover { color: #00d4aa; border-color: rgba(0,212,170,0.25); }
+
+    /* ── Footer ───────────────────────────────────────── */
+    .footer {
+      text-align: center; font-size: 10px;
+      color: rgba(0,212,255,0.35);
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 4px 0 8px;
+      letter-spacing: 0.5px;
+    }
+    .footer i { font-size: 11px; }
+
+    /* Spinner */
+    .spinning { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────── -->
+<div class="header">
+  <div class="logo">
+    <i class="ti ti-brain logo-icon"></i>
+    <span class="logo-text">CORTEXFEED</span>
+  </div>
+  <div class="header-right">
+    <button class="btn-refresh" id="btn-refresh" title="Re-read conversation">
+      <i class="ti ti-refresh"></i>
+    </button>
+    <div class="status" id="status-wrap">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status">OFFLINE</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Body ───────────────────────────────────────────── -->
+<div class="body">
+
+  <!-- Error card (shown when page can't be read) -->
+  <div class="status-card" id="error-card">
+    <div class="status-card-icon">!</div>
+    <div class="status-card-body">
+      <div class="status-card-title">Could not read page</div>
+      <div class="status-card-sub">Open a Claude, ChatGPT, or Gemini tab first.</div>
+    </div>
+  </div>
+
+  <!-- 1-line conversation preview -->
+  <div id="conv-preview">No conversation read yet.</div>
+
+  <!-- Context card -->
+  <div class="context-card">
+    <div class="ctx-label">
+      <i class="ti ti-sparkles"></i> WORKING ON
+    </div>
+
+    <!-- Scrollable intent with custom arrows -->
+    <div class="intent-wrap">
+      <div class="intent-scroll" id="intent-scroll">
+        <textarea id="intent" rows="1" placeholder="Auto-analyzing conversation..."></textarea>
+      </div>
+      <div class="scroll-btns">
+        <button class="scroll-btn" onclick="scrollIntent(-1)" title="Scroll up">
+          <i class="ti ti-chevron-up"></i>
+        </button>
+        <button class="scroll-btn" onclick="scrollIntent(1)" title="Scroll down">
+          <i class="ti ti-chevron-down"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- File cards (rendered by renderFileCards()) -->
+    <input type="text" id="files" placeholder="files">
+    <div class="file-cards" id="files-cards">
+      <div class="no-files">Relevant files (auto-detected)</div>
+    </div>
+
+  </div>
+
+  <!-- Route chip — hidden, kept only for popup.js JS compatibility -->
+  <div style="display:none;">
+    <div id="route-card">
+      <span id="route-badge"></span>
+      <span id="route-ai-label"></span>
+      <span id="route-reason"></span>
+    </div>
+  </div>
+
+  <!-- ── Primary button ─────────────────────────────── -->
+  <button id="btn-build" disabled>
+    <i class="ti ti-sparkles"></i>
+    <span>
+      BUILD + PASTE PROMPT
+      <span class="sub">or press Alt+C anywhere</span>
+    </span>
+  </button>
+
+  <!-- Status log -->
+  <div id="log">checking server...</div>
+
+  <!-- ── Advanced drawer ────────────────────────────── -->
+  <div class="adv-toggle" id="adv-toggle" onclick="toggleAdvanced()">
+    <span id="adv-label">···  Advanced  ···</span>
+  </div>
+
+  <div class="adv-panel" id="advanced-panel" style="display:none;">
+
+    <div class="field-group">
+      <div class="field-label"><i class="ti ti-folder"></i> PROJECT PATH</div>
+      <div class="field-with-copy">
+        <input type="text" id="project-path" placeholder="C:\path\to\your\project">
+        <button class="copy-btn" onclick="copyField('project-path')"><i class="ti ti-copy"></i></button>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field-group">
+        <div class="field-label lbl-green"><i class="ti ti-circle-check"></i> EXPECTED</div>
+        <input type="text" id="expected" placeholder="Should happen">
+      </div>
+      <div class="field-group">
+        <div class="field-label lbl-red"><i class="ti ti-circle-x"></i> ACTUAL</div>
+        <input type="text" id="actual" placeholder="Going wrong">
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label lbl-amber"><i class="ti ti-robot"></i> TARGET AI</div>
+      <select id="target">
+        <option value="Claude by Anthropic">Claude</option>
+        <option value="OpenAI ChatGPT">ChatGPT</option>
+        <option value="Google Gemini">Gemini</option>
+        <option value="any AI assistant">General</option>
+      </select>
+    </div>
+
+    <button class="btn-sec" id="btn-route" disabled>
+      <i class="ti ti-git-branch"></i> ROUTE + PASTE
+    </button>
+
+    <button class="btn-sec" id="btn-investigate" disabled>
+      <i class="ti ti-microscope"></i> INVESTIGATE + PASTE
+    </button>
+
+    <div class="invest-result" id="invest-result">
+      <div class="invest-stats">
+        <div class="invest-stat"><div class="invest-stat-val" id="inv-facts">—</div><div class="invest-stat-lbl">FACTS</div></div>
+        <div class="invest-stat"><div class="invest-stat-val" id="inv-hyps">—</div><div class="invest-stat-lbl">HYPOTHESES</div></div>
+        <div class="invest-stat"><div class="invest-stat-val" id="inv-evidence">—</div><div class="invest-stat-lbl">EVIDENCE</div></div>
+      </div>
+      <div class="invest-hypotheses" id="inv-hyp-list"></div>
+    </div>
+
+    <div class="repo-card">
+      <div class="repo-header" onclick="toggleRepoIntel()">
+        <i class="ti ti-search-code"></i> ASK REPO
+        <span class="repo-toggle" id="repo-intel-toggle">▼ OPEN</span>
+      </div>
+      <div id="repo-intel-body" style="display:none; margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+        <input type="text" id="repo-question" placeholder="who calls InvestigationEngine.investigate">
+        <button class="btn-sm" id="btn-repo-ask" onclick="askRepoIntel()" style="width:100%;">
+          <i class="ti ti-send"></i> Ask
+        </button>
+        <div class="repo-answer" id="repo-answer">
+          <div class="repo-cap" id="repo-capability"></div>
+          <div class="repo-text" id="repo-answer-text"></div>
+          <div class="repo-conf" id="repo-confidence"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Hidden elements: popup.js needs these IDs in the DOM -->
+  <div style="display:none;">
+    <button id="btn-oneclick" disabled></button>
+    <button id="btn-read"></button>
+    <button id="btn-analyze" disabled></button>
+  </div>
+
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────── -->
+<div class="footer">
+  <i class="ti ti-cpu"></i>
+  <span id="model-label">MODEL: —</span>
+</div>
+
+<script src="popup.js"></script>
+<script>
+  // ── Intent: auto-resize + scroll helpers ───────────────
+  const intentEl    = document.getElementById('intent');
+  const intentScroll = document.getElementById('intent-scroll');
+
+  // Grow the textarea up to max-height (96px), then let it scroll internally.
+  // The textarea itself is the scroll container — no wrapper overflow needed.
+  function autoResizeIntent() {
+    intentEl.style.height = 'auto';
+    intentEl.style.height = Math.min(intentEl.scrollHeight, 96) + 'px';
+  }
+  intentEl.addEventListener('input', autoResizeIntent);
+  setTimeout(autoResizeIntent, 150);
+
+  // Scroll buttons drive the textarea's own scrollTop
+  function scrollIntent(dir) {
+    intentEl.scrollBy({ top: dir * 45, behavior: 'smooth' });
+  }
+
+  // ── File cards renderer ────────────────────────────────
+  const EXT_ICONS = {
+    dart: 'ti-brand-flutter', py: 'ti-brand-python',
+    js: 'ti-brand-javascript', ts: 'ti-brand-typescript',
+    json: 'ti-braces', md: 'ti-markdown',
+    txt: 'ti-file-text', html: 'ti-html',
+    css: 'ti-file-code', yaml: 'ti-file-code', yml: 'ti-file-code',
+  };
+
+  window.renderFileCards = function(filesStr) {
+    const container = document.getElementById('files-cards');
+    const files = filesStr ? filesStr.split(/\s+/).filter(Boolean) : [];
+    if (!files.length) {
+      container.innerHTML = '<div class="no-files">Relevant files (auto-detected)</div>';
+      return;
+    }
+    container.innerHTML = files.map(f => {
+      const name = f.split(/[/\\]/).pop();
+      const ext  = (name.split('.').pop() || '').toLowerCase();
+      const icon = EXT_ICONS[ext] || 'ti-file-code';
+      const label = ext ? ext.toUpperCase() + ' File' : 'File';
+      const safe = f.replace(/'/g, '&#39;');
+      return `<div class="file-card">
+        <i class="ti ${icon} file-card-icon"></i>
+        <div class="file-card-body">
+          <div class="file-card-name" title="${safe}">${name}</div>
+          <div class="file-card-meta">${label}</div>
+        </div>
+        <button class="file-card-copy" onclick="navigator.clipboard.writeText('${safe}')" title="Copy path">
+          <i class="ti ti-copy"></i>
+        </button>
+      </div>`;
+    }).join('');
+  };
+
+  // ── Patch setLog for rich success message ──────────────
+  // popup.js defines setLog globally — we override it here
+  // (this script runs after popup.js, so the override sticks)
+  const _baseSetLog = setLog;
+  function setLog(msg, type) {
+    const log = document.getElementById('log');
+    if (!log) return;
+
+    if (type === 'success' && msg.toLowerCase().includes('analyzed')) {
+      log.innerHTML =
+        'Analyzed — review and hit ' +
+        '<span style="color:#00d47a">ROUTE</span>, ' +
+        '<span style="color:#00d47a">BUILD</span>, or ' +
+        '<span style="color:#00d47a">INVESTIGATE</span>';
+      log.className = 'success';
+      return;
+    }
+    if (type === 'success' && msg.toLowerCase().includes('pasted')) {
+      log.innerHTML = '<span style="color:#00d47a">✓</span> ' + msg;
+      log.className = 'success';
+      return;
+    }
+    log.textContent = msg;
+    log.className = type || '';
+  }
+
+  // ── Refresh button ─────────────────────────────────────
+  document.getElementById('btn-refresh').addEventListener('click', async () => {
+    document.getElementById('error-card').classList.remove('visible');
+    const ok = await readConversation();
+    if (ok && conversationText && conversationText.length > 100) {
+      await analyzeConversation();
+    }
+  });
+
+  // ── Advanced drawer ────────────────────────────────────
+  function toggleAdvanced() {
+    const panel = document.getElementById('advanced-panel');
+    const label = document.getElementById('adv-label');
+    const open  = panel.style.display === 'none';
+    panel.style.display = open ? 'flex' : 'none';
+    label.textContent   = open ? '···  Hide Advanced  ···' : '···  Advanced  ···';
+  }
+
+  // ── Show error card when page can't be read ────────────
+  const logEl    = document.getElementById('log');
+  const errorCard = document.getElementById('error-card');
+  new MutationObserver(() => {
+    if (logEl.textContent.includes('Could not read') || logEl.textContent.includes('Error reading')) {
+      errorCard.classList.add('visible');
+    } else if (logEl.classList.contains('success') || logEl.classList.contains('info')) {
+      errorCard.classList.remove('visible');
+    }
+  }).observe(logEl, { childList: true, characterData: true, subtree: true });
+</script>
+</body>
+</html>
