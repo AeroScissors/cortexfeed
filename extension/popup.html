@@ -393,6 +393,49 @@
     }
     .btn-sm:hover { color: #00d4aa; border-color: rgba(0,212,170,0.25); }
 
+    /* ── Context badges (GitHub / selected text) ─────── */
+    .ctx-badge {
+      font-size: 10px; border-radius: 9px; padding: 8px 11px;
+      display: none; align-items: center; gap: 8px;
+    }
+    .ctx-badge-github {
+      background: rgba(0,212,120,0.05);
+      border: 1px solid rgba(0,212,120,0.18);
+      color: rgba(0,212,120,0.75);
+    }
+    .ctx-badge-selection {
+      background: rgba(139,124,247,0.05);
+      border: 1px solid rgba(139,124,247,0.18);
+      color: rgba(139,124,247,0.75);
+    }
+    .ctx-badge-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ctx-badge-dismiss {
+      margin-left: auto; background: none; border: none;
+      color: rgba(255,255,255,0.2); cursor: pointer; font-size: 12px; line-height: 1; padding: 0;
+      flex-shrink: 0;
+    }
+    .ctx-badge-dismiss:hover { color: rgba(255,255,255,0.5); }
+
+    /* ── Prompt History ───────────────────────────────── */
+    .history-item {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; padding: 8px 10px;
+      transition: border-color 0.15s;
+    }
+    .history-item:hover { border-color: rgba(139,124,247,0.2); }
+    .history-body { flex: 1; min-width: 0; }
+    .history-text { font-size: 10px; color: rgba(255,255,255,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-meta { font-size: 9px; color: rgba(255,255,255,0.18); margin-top: 2px; }
+    .history-copy {
+      background: none; border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 5px; color: rgba(255,255,255,0.2);
+      cursor: pointer; font-size: 12px; padding: 4px 5px; flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .history-copy:hover { color: #8b7cf7; border-color: rgba(139,124,247,0.3); }
+
     /* ── Footer ───────────────────────────────────────── */
     .footer {
       text-align: center; font-size: 10px;
@@ -442,33 +485,25 @@
   <!-- 1-line conversation preview -->
   <div id="conv-preview">No conversation read yet.</div>
 
-  <!-- Context card -->
-  <div class="context-card">
-    <div class="ctx-label">
-      <i class="ti ti-sparkles"></i> WORKING ON
-    </div>
+  <!-- GitHub context badge (Feature 3) -->
+  <div class="ctx-badge ctx-badge-github" id="github-card">
+    <i class="ti ti-brand-github"></i>
+    <span class="ctx-badge-text"><strong id="github-repo-name">repo</strong> — README + file tree included</span>
+  </div>
 
-    <!-- Scrollable intent with custom arrows -->
-    <div class="intent-wrap">
-      <div class="intent-scroll" id="intent-scroll">
-        <textarea id="intent" rows="1" placeholder="Auto-analyzing conversation..."></textarea>
-      </div>
-      <div class="scroll-btns">
-        <button class="scroll-btn" onclick="scrollIntent(-1)" title="Scroll up">
-          <i class="ti ti-chevron-up"></i>
-        </button>
-        <button class="scroll-btn" onclick="scrollIntent(1)" title="Scroll down">
-          <i class="ti ti-chevron-down"></i>
-        </button>
-      </div>
-    </div>
+  <!-- Selected text from right-click (Feature 5) -->
+  <div class="ctx-badge ctx-badge-selection" id="selected-text-card">
+    <i class="ti ti-text-plus"></i>
+    <span class="ctx-badge-text" id="selected-text-preview">Selected text</span>
+    <button class="ctx-badge-dismiss" onclick="clearSelectedText()">✕</button>
+  </div>
 
-    <!-- File cards (rendered by renderFileCards()) -->
-    <input type="text" id="files" placeholder="files">
-    <div class="file-cards" id="files-cards">
-      <div class="no-files">Relevant files (auto-detected)</div>
-    </div>
-
+  <!-- Hidden elements: intent + files kept for JS compatibility -->
+  <div style="display:none;">
+    <textarea id="intent" rows="1"></textarea>
+    <input type="text" id="files">
+    <div id="files-cards"></div>
+    <div id="intent-scroll"></div>
   </div>
 
   <!-- Route chip — hidden, kept only for popup.js JS compatibility -->
@@ -531,6 +566,12 @@
     <button class="btn-sec" id="btn-route" disabled>
       <i class="ti ti-git-branch"></i> ROUTE + PASTE
     </button>
+
+    <!-- Prompt history (Feature 4) -->
+    <div id="history-section" style="display:none;">
+      <div class="field-label" style="margin-bottom:5px;"><i class="ti ti-history"></i> RECENT PROMPTS</div>
+      <div id="history-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+    </div>
 
     <button class="btn-sec" id="btn-investigate" disabled>
       <i class="ti ti-microscope"></i> INVESTIGATE + PASTE
@@ -677,6 +718,11 @@
     const open  = panel.style.display === 'none';
     panel.style.display = open ? 'flex' : 'none';
     label.textContent   = open ? '···  Hide Advanced  ···' : '···  Advanced  ···';
+    if (open) {
+      chrome.storage.local.get(['cf_history']).then(s => {
+        if (s.cf_history?.length) renderHistory(s.cf_history);
+      });
+    }
   }
 
   // ── Show error card when page can't be read ────────────

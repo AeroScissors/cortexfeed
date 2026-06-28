@@ -202,6 +202,23 @@ async function pasteIntoTab(tabId, prompt) {
 }
 
 
+// ── Context menu (Feature 5: right-click "Send to cortexfeed") ──
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'cortexfeed-add-context',
+    title: 'Send to cortexfeed',
+    contexts: ['selection'],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === 'cortexfeed-add-context' && info.selectionText) {
+    chrome.storage.local.set({ cf_selected_text: info.selectionText.trim() });
+  }
+});
+
+
 // ── Keyboard shortcuts ────────────────────────────────────
 
 chrome.commands.onCommand.addListener(async (command) => {

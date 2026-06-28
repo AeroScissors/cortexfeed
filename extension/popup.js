@@ -45,29 +45,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check server + detect site in parallel
   await Promise.all([checkServer(), detectSite()]);
 
-  // Mark intent/files as user-edited only after the user actually types —
-  // NOT when restoreState() programmatically fills them.
-  document.getElementById('intent').addEventListener('input', () => { intentUserEdited = true; });
-  document.getElementById('files').addEventListener('input',  () => { filesUserEdited  = true; });
-
-  // Auto-read + analyze when popup opens on an AI site
-  if (isOnline && currentSite !== 'unknown') {
-    const success = await readConversation();
-    if (success && conversationText.length > 100) {
-      await analyzeConversation();
-    } else {
-      // Reading failed — clear stale context from previous sessions so the
-      // user doesn't see old data that belongs to a different conversation.
-      if (!intentUserEdited) document.getElementById('intent').value = '';
-      if (!filesUserEdited) {
-        document.getElementById('files').value = '';
-        if (window.renderFileCards) window.renderFileCards('');
-      }
-      // setLog already set by readConversation() failure branch
-    }
-  } else if (isOnline) {
-    setLog('Open Claude, ChatGPT, or Gemini to get started', '');
-  }
+  // Check for right-click selected text + load prompt history
+  await checkSelectedText();
+  const histStored = await chrome.storage.local.get(['cf_history']);
+  if (histStored.cf_history?.length) renderHistory(histStored.cf_history);
 
   // Event listeners
   document.getElementById('btn-read').addEventListener('click', async () => {
@@ -85,8 +66,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await saveState();
   });
 
+  // BUILD + PASTE: full pipeline in one click
   document.getElementById('btn-build').addEventListener('click', async () => {
-    await buildAndPaste();
+    setLog('Reading conversation...', 'info');
+    const ok = await readConversation();
+    if (ok && conversationText.length > 100) {
+      setLog('Analyzing...', 'info');
+      await analyzeConversation();
+    }
+    await buildAndPaste(window._convSummary || '');
     await saveState();
   });
 
@@ -223,7 +211,8 @@ async function classifyAndRoute() {
     const data = await res.json();
 
     if (data.status === 'ok') {
-      recommendedAI = data.recommended_ai;
+      recommendedAI    = data.recommended_ai;
+      window._taskType = data.task_type; // Feature 2: store for buildAndPaste
 
       // Show route card
       document.getElementById('route-card').style.display = 'block';
@@ -361,6 +350,112 @@ async function investigateAndPaste() {
   }
 }
 
+// ── GitHub Context (Feature 3) ────────────────────────────
+async function getGitHubContext() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = tab.url || '';
+    const match = url.match(/github\.com\/([^/]+)\/([^/?\s#]+)/);
+    if (!match) return null;
+
+    const [, owner, repo] = match;
+    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+    if (!repoRes.ok) return null;
+    const repoData = await repoRes.json();
+    const branch = repoData.default_branch || 'main';
+
+    let readme = '';
+    try {
+      const r = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/README.md`);
+      if (r.ok) readme = (await r.text()).slice(0, 2000);
+    } catch (_) {}
+
+    let fileTree = '';
+    try {
+      const t = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`);
+      if (t.ok) {
+        const td = await t.json();
+        if (td.tree) {
+          fileTree = td.tree
+            .filter(f => f.type === 'blob' && !f.path.includes('node_modules'))
+            .map(f => f.path)
+            .slice(0, 60)
+            .join('\n');
+        }
+      }
+    } catch (_) {}
+
+    const card = document.getElementById('github-card');
+    const nameEl = document.getElementById('github-repo-name');
+    if (card && nameEl) { nameEl.textContent = `${owner}/${repo}`; card.style.display = 'flex'; }
+
+    return { owner, repo, branch, readme, fileTree };
+  } catch (_) { return null; }
+}
+
+// ── Prompt History (Feature 4) ────────────────────────────
+async function savePromptHistory(prompt) {
+  const s = await chrome.storage.local.get(['cf_history']);
+  const history = s.cf_history || [];
+  history.unshift({ prompt, ts: Date.now() });
+  if (history.length > 5) history.length = 5;
+  await chrome.storage.local.set({ cf_history: history });
+  renderHistory(history);
+}
+
+function renderHistory(history) {
+  const section = document.getElementById('history-section');
+  const list    = document.getElementById('history-list');
+  if (!section || !list || !history.length) return;
+  section.style.display = 'block';
+  list.innerHTML = history.map((item, i) => {
+    const preview = item.prompt.slice(0, 80).replace(/</g, '&lt;');
+    const ago = timeAgo(item.ts);
+    return `<div class="history-item">
+      <div class="history-body">
+        <div class="history-text">${preview}…</div>
+        <div class="history-meta">${ago}</div>
+      </div>
+      <button class="history-copy" title="Copy" onclick="copyHistory(${i})"><i class="ti ti-copy"></i></button>
+    </div>`;
+  }).join('');
+}
+
+window.copyHistory = async function(i) {
+  const s = await chrome.storage.local.get(['cf_history']);
+  const h = (s.cf_history || [])[i];
+  if (h) { await navigator.clipboard.writeText(h.prompt); setLog('Copied!', 'success'); }
+};
+
+function timeAgo(ts) {
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── Selected text from right-click (Feature 5) ───────────
+async function checkSelectedText() {
+  const s = await chrome.storage.local.get(['cf_selected_text']);
+  if (s.cf_selected_text) {
+    const card = document.getElementById('selected-text-card');
+    const prev = document.getElementById('selected-text-preview');
+    if (card && prev) {
+      const t = s.cf_selected_text;
+      prev.textContent = t.slice(0, 60) + (t.length > 60 ? '...' : '');
+      card.style.display = 'flex';
+    }
+  }
+}
+
+window.clearSelectedText = async function() {
+  await chrome.storage.local.remove('cf_selected_text');
+  const card = document.getElementById('selected-text-card');
+  if (card) card.style.display = 'none';
+};
+
 // ── Build prompt + paste into chat ────────────────────────
 async function buildAndPaste(convSummary = '') {
   const intent   = document.getElementById('intent').value.trim();
@@ -370,7 +465,14 @@ async function buildAndPaste(convSummary = '') {
   const target   = document.getElementById('target').value;
   projectPath    = document.getElementById('project-path').value.trim();
 
-  if (!intent && !conversationText) {
+  // Feature 5: selected text from right-click
+  const stored = await chrome.storage.local.get(['cf_selected_text']);
+  const extraContext = stored.cf_selected_text || '';
+
+  // Feature 3: GitHub context
+  const githubCtx = await getGitHubContext();
+
+  if (!intent && !conversationText && !githubCtx && !extraContext) {
     setLog('Add a description or read the conversation first', 'error');
     return;
   }
@@ -391,6 +493,9 @@ async function buildAndPaste(convSummary = '') {
         target,
         project_path:         projectPath,
         conversation_summary: convSummary || window._convSummary || '',
+        task_type:            window._taskType || 'general',  // Feature 2
+        github_context:       githubCtx,                       // Feature 3
+        extra_context:        extraContext,                     // Feature 5
       }),
     });
     const data = await res.json();
@@ -398,6 +503,12 @@ async function buildAndPaste(convSummary = '') {
     if (data.status === 'ok' && data.prompt) {
       await chrome.runtime.sendMessage({ action: 'paste_to_active_tab', prompt: data.prompt });
       setLog('Prompt pasted into chat!', 'success');
+      await savePromptHistory(data.prompt);  // Feature 4
+      if (extraContext) {
+        await chrome.storage.local.remove('cf_selected_text');
+        const card = document.getElementById('selected-text-card');
+        if (card) card.style.display = 'none';
+      }
     } else {
       setLog('Server error', 'error');
     }

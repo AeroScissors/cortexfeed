@@ -25,44 +25,96 @@ def ping():
     return jsonify({'status': 'ok', 'model': model})
 
 
+# ── Smart prompt templates ────────────────────────────────
+PROMPT_INTROS = {
+    'debug':    'I have a bug I need help debugging.',
+    'code':     'I need help writing or implementing code.',
+    'explain':  'I need something explained clearly.',
+    'research': 'I need accurate, up-to-date information on this topic.',
+    'design':   'I need help with system design or architecture.',
+    'general':  'I need help with the following.',
+}
+
+PROMPT_OUTROS = {
+    'debug':    'Please identify the root cause and provide a specific fix.',
+    'code':     'Please write the implementation. Keep it clean and add comments where helpful.',
+    'explain':  'Please explain clearly with examples where useful.',
+    'research': 'Please provide accurate, current information.',
+    'design':   'Please give architectural recommendations with trade-offs.',
+    'general':  'Please help me with this.',
+}
+
+
 @app.route('/build-prompt', methods=['POST'])
 def build_prompt():
+    import os
     data = request.json
-    conversation = data.get('conversation', '')
-    intent = data.get('intent', '')
-    expected = data.get('expected', '')
-    actual = data.get('actual', '')
-    files = data.get('files', [])
-    target = data.get('target', 'any AI assistant')
-    project_path = data.get('project_path', '')
+    conversation        = data.get('conversation', '')
+    intent              = data.get('intent', '')
+    expected            = data.get('expected', '')
+    actual              = data.get('actual', '')
+    files               = data.get('files', [])
+    target              = data.get('target', 'any AI assistant')
+    project_path        = data.get('project_path', '')
     conversation_summary = data.get('conversation_summary', '')
-    print(f"[PROMPT] conversation_summary length={len(conversation_summary)}")
+    task_type           = data.get('task_type', 'general')
+    github_context      = data.get('github_context')   # dict or None
+    extra_context       = data.get('extra_context', '') # selected text from right-click
+
+    print(f"[PROMPT] task_type={task_type} summary_len={len(conversation_summary)}")
+
+    # Resolve file contents
     file_context = ""
     if files:
         all_files = []
         for pat in files:
-            if project_path:
-                import os
-                full = os.path.join(project_path, pat)
-                all_files.extend(resolve_paths(full))
-            else:
-                all_files.extend(resolve_paths(pat))
+            full = os.path.join(project_path, pat) if project_path else pat
+            all_files.extend(resolve_paths(full))
         if all_files:
             file_context = format_for_prompt(all_files)
-    sections = []
+
+    # Build prompt using task-specific template
+    intro = PROMPT_INTROS.get(task_type, PROMPT_INTROS['general'])
+    outro = PROMPT_OUTROS.get(task_type, PROMPT_OUTROS['general'])
+
+    sections = [intro]
+
+    # Conversation context
     if conversation_summary:
         sections.append(f"Context from our previous conversation:\n{conversation_summary}")
     elif conversation:
         sections.append(f"Here is the conversation so far:\n\n{conversation[:4000]}")
+
+    # GitHub repo context (Feature 3)
+    if github_context:
+        gh_text = f"GitHub Repository: {github_context.get('owner','')}/{github_context.get('repo','')}\n"
+        if github_context.get('readme'):
+            gh_text += f"\nREADME:\n{github_context['readme'][:1500]}"
+        if github_context.get('fileTree'):
+            gh_text += f"\nFile structure:\n{github_context['fileTree']}"
+        sections.append(gh_text)
+
+    # Intent / problem description
     if intent:
-        sections.append(f"I am working on the following problem:\n{intent}")
+        label = 'Bug description' if task_type == 'debug' else 'What I need'
+        sections.append(f"{label}:\n{intent}")
+
+    # Selected text from right-click (Feature 5)
+    if extra_context:
+        sections.append(f"Additional context:\n{extra_context}")
+
+    # File contents
     if file_context:
-        sections.append(f"Here are the relevant files:\n\n{file_context}")
+        sections.append(f"Relevant files:\n\n{file_context}")
+
+    # Expected / actual (always shown for debug, optional otherwise)
     if expected:
         sections.append(f"Expected behavior:\n{expected}")
     if actual:
         sections.append(f"Current behavior / what is going wrong:\n{actual}")
-    sections.append(f"Please help me. I am sending this to {target}.")
+
+    sections.append(f"{outro}\n\nI am sending this to {target}.")
+
     built_prompt = "\n\n---\n\n".join(sections)
     return jsonify({'status': 'ok', 'prompt': built_prompt})
 
