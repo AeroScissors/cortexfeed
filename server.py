@@ -26,22 +26,13 @@ def ping():
 
 
 # ── Smart prompt templates ────────────────────────────────
+# Only debug gets explicit framing — everything else lets the context speak.
 PROMPT_INTROS = {
-    'debug':    'I have a bug I need help debugging.',
-    'code':     'I need help writing or implementing code.',
-    'explain':  'I need something explained clearly.',
-    'research': 'I need accurate, up-to-date information on this topic.',
-    'design':   'I need help with system design or architecture.',
-    'general':  'I need help with the following.',
+    'debug': 'I have a bug I need help debugging.',
 }
 
 PROMPT_OUTROS = {
-    'debug':    'Please identify the root cause and provide a specific fix.',
-    'code':     'Please write the implementation. Keep it clean and add comments where helpful.',
-    'explain':  'Please explain clearly with examples where useful.',
-    'research': 'Please provide accurate, current information.',
-    'design':   'Please give architectural recommendations with trade-offs.',
-    'general':  'Please help me with this.',
+    'debug': 'Please identify the root cause and provide a specific fix.',
 }
 
 
@@ -74,10 +65,13 @@ def build_prompt():
             file_context = format_for_prompt(all_files)
 
     # Build prompt using task-specific template
-    intro = PROMPT_INTROS.get(task_type, PROMPT_INTROS['general'])
-    outro = PROMPT_OUTROS.get(task_type, PROMPT_OUTROS['general'])
+    intro = PROMPT_INTROS.get(task_type)  # None for general/explain
+    outro = PROMPT_OUTROS.get(task_type)  # None for general/explain
 
-    sections = [intro]
+    sections = []
+
+    if intro:
+        sections.append(intro)
 
     # Conversation context
     if conversation_summary:
@@ -94,10 +88,10 @@ def build_prompt():
             gh_text += f"\nFile structure:\n{github_context['fileTree']}"
         sections.append(gh_text)
 
-    # Intent / problem description
+    # Intent / problem description — no label for general tasks
     if intent:
-        label = 'Bug description' if task_type == 'debug' else 'What I need'
-        sections.append(f"{label}:\n{intent}")
+        label = 'Bug description' if task_type == 'debug' else None
+        sections.append(f"{label}:\n{intent}" if label else intent)
 
     # Selected text from right-click (Feature 5)
     if extra_context:
@@ -107,13 +101,14 @@ def build_prompt():
     if file_context:
         sections.append(f"Relevant files:\n\n{file_context}")
 
-    # Expected / actual (always shown for debug, optional otherwise)
+    # Expected / actual
     if expected:
         sections.append(f"Expected behavior:\n{expected}")
     if actual:
         sections.append(f"Current behavior / what is going wrong:\n{actual}")
 
-    sections.append(f"{outro}\n\nI am sending this to {target}.")
+    if outro:
+        sections.append(outro)
 
     built_prompt = "\n\n---\n\n".join(sections)
     return jsonify({'status': 'ok', 'prompt': built_prompt})
