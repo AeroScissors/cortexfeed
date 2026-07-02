@@ -1,16 +1,28 @@
 # cortexfeed
 
-Local AI context feeder — free, offline, powered by Ollama.
-Feed your files and terminal output directly to AI without copy-pasting.
+**Give your AI the full picture — automatically.**
+
+cortexfeed reads your active AI conversation, detects which files in your project are relevant, and injects them as context — all with one click. No copy-pasting. No manual file hunting. Free and offline.
 
 ---
 
-## Features
+## How it works
 
-- **Watch files** — auto-detect file changes and stream AI analysis
-- **Run terminal** — execute commands and ask AI about the output
-- **AI reads & asks** — dump your project files, AI reviews and asks questions
-- **Chat** — full terminal chat with `/file` and `/run` context injection
+1. You're debugging in ChatGPT, Claude, or Gemini
+2. Click the cortexfeed extension icon
+3. It reads your conversation and finds the relevant files in your project
+4. You see a preview of the full prompt (with file contents attached)
+5. Click **Paste Now** — cortexfeed injects it directly into the AI chat
+
+> Your code never leaves your machine. Everything runs locally via Ollama.
+
+---
+
+## Works with
+
+- [ChatGPT](https://chatgpt.com)
+- [Claude](https://claude.ai)
+- [Gemini](https://gemini.google.com)
 
 ---
 
@@ -18,35 +30,67 @@ Feed your files and terminal output directly to AI without copy-pasting.
 
 - Python 3.10+
 - [Ollama](https://ollama.com) installed and running
+- Google Chrome
 
 ---
 
 ## Setup
 
-    # 1. install dependencies
-    pip install -r requirements.txt
+### 1. Install Python dependencies
 
-    # 2. pull a model
-    ollama pull mistral
+```bash
+pip install -r requirements.txt
+```
 
-    # 3. start ollama
-    ollama serve
+### 2. Pull a model
 
-    # 4. run cortexfeed
-    python main.py
+```bash
+ollama pull mistral
+```
+
+### 3. Start the cortexfeed server
+
+```bash
+python server.py
+```
+
+You should see:
+
+```
+cortexfeed server starting on http://localhost:5050
+Chrome extension can now connect.
+```
+
+Keep this terminal open while you use cortexfeed.
+
+### 4. Install the Chrome extension
+
+1. Open Chrome and go to `chrome://extensions`
+2. Enable **Developer mode** (top right toggle)
+3. Click **Load unpacked**
+4. Select the `extension/` folder from this repo
+
+The cortexfeed icon will appear in your toolbar.
 
 ---
 
-## Chat Commands
+## First use
 
-| Command | What it does |
-|---------|--------------|
-| `/file <path>` | Attach a file to your next message |
-| `/run <cmd>` | Run a command, attach output |
-| `/clear` | Clear chat history |
-| `/save` | Save chat to a .txt file |
-| `/help` | Show help |
-| `back` | Return to main menu |
+1. Open ChatGPT (or Claude / Gemini) and start a conversation about your code
+2. Click the cortexfeed icon
+3. Enter your project folder path when prompted (e.g. `C:\Users\You\Projects\myapp`)
+4. Click **Build + Paste**
+5. Review the prompt in the preview — you'll see your files attached at the bottom
+6. Click **Paste Now**
+
+---
+
+## Keyboard shortcuts
+
+| Shortcut | What it does |
+|----------|--------------|
+| `Alt+C` | Build + paste into the current AI tab (no popup needed) |
+| `Alt+Shift+C` | Classify your task, open the best AI, paste automatically |
 
 ---
 
@@ -54,14 +98,52 @@ Feed your files and terminal output directly to AI without copy-pasting.
 
 Edit `.env` to change defaults:
 
-    OLLAMA_URL=http://localhost:11434
-    DEFAULT_MODEL=mistral
-    WATCH_INTERVAL=2
-    MAX_FILE_KB=200
+```
+OLLAMA_URL=http://localhost:11434
+DEFAULT_MODEL=mistral
+MAX_FILE_KB=256
+```
+
+### Supported models
+
+Switch models anytime from the extension popup.
+Popular options: `mistral`, `llama3`, `codellama`, `phi3`
 
 ---
 
-## Models
+## FAQ
 
-Switch models anytime from the main menu.
-Popular options: `mistral`, `llama3`, `codellama`, `phi3`
+**Does this send my code anywhere?**
+No. cortexfeed runs entirely on your machine. Ollama is local. The server is local. Nothing is sent to any external service.
+
+**Does it work without internet?**
+Yes, fully offline once Ollama and the model are installed.
+
+**Which files does it pick?**
+cortexfeed reads your AI conversation, extracts mentioned filenames and keywords, and scores files in your project folder by relevance. You can include or exclude specific files before pasting.
+
+**The extension says "server offline" — what do I do?**
+Make sure `python server.py` is running in a terminal. Check that Ollama is also running (`ollama serve`).
+
+---
+
+## Project structure
+
+```
+cortexfeed/
+├── server.py              # Flask server (run this)
+├── extension/             # Chrome extension (load this in Chrome)
+│   ├── popup.js
+│   ├── content.js
+│   └── background.js
+├── server/
+│   ├── routes/            # API routes (analyze, classify, files)
+│   └── ai/                # File detection and prompt building
+└── cortexfeed/            # CLI and config
+```
+
+---
+
+## License
+
+MIT
