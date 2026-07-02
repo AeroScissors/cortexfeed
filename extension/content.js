@@ -12,9 +12,23 @@ function readConversation() {
   let messages = [];
 
   if (SITE === 'claude') {
-    document.querySelectorAll('[data-testid="conversation-turn"], .font-claude-message, .human-turn').forEach(el => {
-      const text = el.innerText.trim();
-      if (text) messages.push(text);
+    // Try multiple selector strategies in order of reliability
+    const selectors = [
+      '[data-testid^="conversation-turn"]',   // numbered turns (current)
+      '[data-testid="conversation-turn"]',     // unnumbered turns
+      '[class*="claude-message"]',
+      '[class*="human-turn"]',
+      '.font-claude-message',
+      '.human-turn',
+    ];
+    const combined = selectors.join(', ');
+    const seen = new Set();
+    document.querySelectorAll(combined).forEach(el => {
+      if (!seen.has(el)) {
+        seen.add(el);
+        const text = el.innerText.trim();
+        if (text && text.length > 5) messages.push(text);
+      }
     });
   }
 

@@ -10,7 +10,7 @@ def register(app, get_model):
         Given conversation + project path, auto-detect relevant files.
         Returns scored file list ready to attach to prompt.
         """
-        data = request.json
+        data = request.json or {}
         conversation = data.get('conversation', '')
         project_path = data.get('project_path', '')
         likely_files = data.get('likely_files', [])
@@ -37,7 +37,7 @@ def register(app, get_model):
         Scan a project folder and return all code files.
         Used by extension to show file tree.
         """
-        data = request.json
+        data = request.json or {}
         project_path = data.get('project_path', '')
 
         if not project_path:

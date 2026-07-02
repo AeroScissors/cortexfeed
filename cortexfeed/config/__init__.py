@@ -1,11 +1,16 @@
 # File: cortexfeed/config/__init__.py
 
 from cortexfeed.config.settings import (
+    AI_BACKEND,
     OLLAMA_HOST,
     OLLAMA_GENERATE,
     OLLAMA_CHAT,
     OLLAMA_TAGS,
     DEFAULT_MODEL,
+    OPENAI_API_KEY,
+    OPENAI_MODEL,
+    ANTHROPIC_API_KEY,
+    ANTHROPIC_MODEL,
     SYSTEM_PROMPT,
     MAX_FILE_KB,
     WATCH_INTERVAL,
@@ -13,11 +18,16 @@ from cortexfeed.config.settings import (
 )
 
 __all__ = [
+    "AI_BACKEND",
     "OLLAMA_HOST",
     "OLLAMA_GENERATE",
     "OLLAMA_CHAT",
     "OLLAMA_TAGS",
     "DEFAULT_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_MODEL",
     "SYSTEM_PROMPT",
     "MAX_FILE_KB",
     "WATCH_INTERVAL",

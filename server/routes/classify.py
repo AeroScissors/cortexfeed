@@ -11,24 +11,29 @@ from flask import request, jsonify
 
 TASK_PATTERNS = {
     "debug": [
-        r'\b(error|bug|crash|exception|traceback|stack.?trace|not working|broken|fails?|failing|fix|404|500|undefined|nan|null pointer|wrong output|unexpected)\b',
+        r'\b(error|bug|crash|exception|traceback|stack.?trace|not working|broken|fails?|failing|404|500|undefined|nan|null pointer|wrong output|unexpected)\b',
         r'\b(why (is|does|isn\'t|doesn\'t)|what went wrong|can\'t figure|investigate|diagnose)\b',
     ],
     "research": [
         r'\b(latest|current|today|2025|2026|news|recent|new version|release)\b',
         r'\b(best (library|tool|framework|approach)|compare|vs\.?|versus|which (is|should)|what.s (the )?best)\b',
         r'\b(search|look up|find information|what.s new|up.?to.?date)\b',
+        r'\b(buy|purchase|price|cost|hire|find|recommend|where (can|do|should)|how much)\b',
     ],
     "code": [
-        r'\b(implement|write|create|build|generate|scaffold|refactor|add (a |the )?(function|method|class|component|endpoint|route))\b',
-        r'\b(how to (write|implement|create|build)|make (a|an|the)|code for)\b',
+        # Require programming-specific context — "build a website" shouldn't match
+        r'\b(implement|refactor|scaffold|add (a |the )?(function|method|class|component|endpoint|route))\b',
+        r'\b(write (a |the )?(function|method|class|script|code|test|api|endpoint|component))\b',
+        r'\b(generate (a |the )?(function|class|component|schema|migration|test))\b',
+        r'\b(code for|how to (write|implement|code))\b',
     ],
     "explain": [
         r'\b(explain|what (is|are|does)|how (does|do|would|should)|understand|meaning|definition|walk me through)\b',
     ],
     "design": [
-        r'\b(architecture|design|schema|structure|plan|diagram|flow|organize|how (should|would) (i|we) (structure|organize|design|approach))\b',
-        r'\b(best practice|pattern|convention|clean|scalable)\b',
+        r'\b(architecture|design (a |the )?(system|schema|database|api)|structure|plan|diagram|flow)\b',
+        r'\b(how (should|would) (i|we) (structure|organize|design|approach))\b',
+        r'\b(best practice|design pattern|scalable|organize (the |my )?(code|project|codebase))\b',
     ],
 }
 

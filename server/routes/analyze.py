@@ -2,7 +2,7 @@ import re
 from flask import request, jsonify
 from server.ai.intent import analyze_conversation
 from server.ai.file_detector import detect_relevant_files
-from cortexfeed.core import ollama
+from cortexfeed.core import ai
 
 
 def _rule_based_summary(conversation: str) -> str:
@@ -102,7 +102,7 @@ def summarize_conversation(conversation: str, model: str) -> str:
         f"Be very concise.\n\n{conversation[-4000:]}"
     )
     system = "You are a technical summarizer. Output only the summary, no preamble."
-    return ollama.ask(prompt, model=model, system=system)
+    return ai.ask(prompt, model=model, system=system)
 
 
 def register(app, get_model):

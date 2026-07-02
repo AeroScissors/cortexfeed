@@ -449,6 +449,60 @@
     /* Spinner */
     .spinning { animation: spin 1s linear infinite; display: inline-block; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* ── Offline onboarding card ──────────────────────────── */
+    #offline-card {
+      display: none;
+      background: rgba(255,170,70,0.06);
+      border: 1px solid rgba(255,170,70,0.18);
+      border-radius: 12px;
+      padding: 12px 14px;
+      flex-direction: column;
+      gap: 8px;
+    }
+    #offline-card.visible { display: flex; }
+    .offline-title {
+      font-size: 11px; font-weight: 700; color: rgba(255,170,70,0.85);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .offline-steps { display: flex; flex-direction: column; gap: 6px; }
+    .offline-step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; color: rgba(255,255,255,0.4);
+    }
+    .offline-step-num {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: rgba(255,170,70,0.12);
+      border: 1px solid rgba(255,170,70,0.25);
+      color: rgba(255,170,70,0.7);
+      font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .offline-cmd { display: flex; align-items: center; gap: 6px; flex: 1; }
+    .offline-code {
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 5px; padding: 3px 7px;
+      font-family: monospace; font-size: 10px; color: #c8d6f0; flex: 1;
+    }
+    .offline-copy {
+      background: none; border: 1px solid rgba(255,170,70,0.2);
+      border-radius: 5px; color: rgba(255,170,70,0.5);
+      cursor: pointer; font-size: 11px; padding: 3px 7px; flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .offline-copy:hover { color: #ffaa46; border-color: rgba(255,170,70,0.5); }
+
+    /* ── File toggle button ───────────────────────────────── */
+    .file-toggle {
+      background: none; border: 1px solid rgba(0,212,120,0.25);
+      border-radius: 5px; color: rgba(0,212,120,0.6);
+      cursor: pointer; font-size: 12px; padding: 5px 6px;
+      flex-shrink: 0; transition: all 0.15s; margin-right: 2px;
+    }
+    .file-toggle:hover { color: #00d47a; border-color: rgba(0,212,120,0.5); }
+    .file-toggle.excluded { border-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.2); }
+    .file-card.excluded { opacity: 0.38; }
   </style>
 </head>
 <body>
@@ -482,6 +536,28 @@
     </div>
   </div>
 
+  <!-- Offline onboarding (shown when server is not running) -->
+  <div id="offline-card">
+    <div class="offline-title"><i class="ti ti-plug-connected-x"></i> Server not running</div>
+    <div class="offline-steps">
+      <div class="offline-step">
+        <div class="offline-step-num">1</div>
+        <span>Open a terminal in your <strong style="color:rgba(255,255,255,0.6)">cortexfeed</strong> folder</span>
+      </div>
+      <div class="offline-step">
+        <div class="offline-step-num">2</div>
+        <div class="offline-cmd">
+          <span class="offline-code">python server.py</span>
+          <button class="offline-copy" id="btn-copy-cmd" title="Copy command"><i class="ti ti-copy"></i></button>
+        </div>
+      </div>
+      <div class="offline-step">
+        <div class="offline-step-num">3</div>
+        <span>Click <strong style="color:rgba(255,255,255,0.6)">↺</strong> (top right) to retry</span>
+      </div>
+    </div>
+  </div>
+
   <!-- 1-line conversation preview -->
   <div id="conv-preview">No conversation read yet.</div>
 
@@ -495,15 +571,27 @@
   <div class="ctx-badge ctx-badge-selection" id="selected-text-card">
     <i class="ti ti-text-plus"></i>
     <span class="ctx-badge-text" id="selected-text-preview">Selected text</span>
-    <button class="ctx-badge-dismiss" onclick="clearSelectedText()">✕</button>
+    <button class="ctx-badge-dismiss" id="btn-clear-selection">✕</button>
   </div>
 
-  <!-- Hidden elements: intent + files kept for JS compatibility -->
+  <!-- ── Intent card ──────────────────────────────── -->
+  <div class="context-card" id="intent-card" style="display:none;">
+    <div class="ctx-label">
+      <i class="ti ti-pencil"></i>
+      <span>WHAT TO DO NEXT</span>
+      <span id="intent-task-badge" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(139,124,247,0.12);color:#8b7cf7;letter-spacing:1px;"></span>
+    </div>
+    <div class="intent-wrap">
+      <div class="intent-scroll">
+        <textarea id="intent" rows="2" placeholder="cortexfeed will fill this in — or type your own next step"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden elements: kept for JS compatibility -->
   <div style="display:none;">
-    <textarea id="intent" rows="1"></textarea>
     <input type="text" id="files">
-    <div id="files-cards"></div>
-    <div id="intent-scroll"></div>
+    <div id="intent-scroll-compat"></div>
   </div>
 
   <!-- Route chip — hidden, kept only for popup.js JS compatibility -->
@@ -528,7 +616,7 @@
   <div id="log">checking server...</div>
 
   <!-- ── Advanced drawer ────────────────────────────── -->
-  <div class="adv-toggle" id="adv-toggle" onclick="toggleAdvanced()">
+  <div class="adv-toggle" id="adv-toggle">
     <span id="adv-label">···  Advanced  ···</span>
   </div>
 
@@ -538,7 +626,21 @@
       <div class="field-label"><i class="ti ti-folder"></i> PROJECT PATH</div>
       <div class="field-with-copy">
         <input type="text" id="project-path" placeholder="C:\path\to\your\project">
-        <button class="copy-btn" onclick="copyField('project-path')"><i class="ti ti-copy"></i></button>
+        <button class="copy-btn" id="btn-copy-project-path"><i class="ti ti-copy"></i></button>
+      </div>
+    </div>
+
+    <!-- Detected files section -->
+    <div class="field-group" id="files-section">
+      <div class="field-label" style="display:flex;justify-content:space-between;align-items:center;">
+        <span><i class="ti ti-files"></i> FILES TO INCLUDE</span>
+        <span id="files-count" style="font-size:9px;color:rgba(255,255,255,0.18);letter-spacing:1px;">auto-detected</span>
+      </div>
+      <div id="files-cards">
+        <div class="no-files">Set project path + hit BUILD to auto-detect relevant files</div>
+      </div>
+      <div id="no-path-warning" style="display:none;font-size:9px;color:rgba(255,170,70,0.6);padding:4px 2px;">
+        ⚠ Set project path above so file contents are included in your prompt
       </div>
     </div>
 
@@ -587,13 +689,13 @@
     </div>
 
     <div class="repo-card">
-      <div class="repo-header" onclick="toggleRepoIntel()">
+      <div class="repo-header" id="repo-header">
         <i class="ti ti-search-code"></i> ASK REPO
         <span class="repo-toggle" id="repo-intel-toggle">▼ OPEN</span>
       </div>
       <div id="repo-intel-body" style="display:none; margin-top:8px; display:flex; flex-direction:column; gap:6px;">
         <input type="text" id="repo-question" placeholder="who calls InvestigationEngine.investigate">
-        <button class="btn-sm" id="btn-repo-ask" onclick="askRepoIntel()" style="width:100%;">
+        <button class="btn-sm" id="btn-repo-ask" style="width:100%;">
           <i class="ti ti-send"></i> Ask
         </button>
         <div class="repo-answer" id="repo-answer">
@@ -622,119 +724,37 @@
 </div>
 
 <script src="popup.js"></script>
-<script>
-  // ── Intent: auto-resize + scroll helpers ───────────────
-  const intentEl    = document.getElementById('intent');
-  const intentScroll = document.getElementById('intent-scroll');
 
-  // Grow the textarea up to max-height (96px), then let it scroll internally.
-  // The textarea itself is the scroll container — no wrapper overflow needed.
-  function autoResizeIntent() {
-    intentEl.style.height = 'auto';
-    intentEl.style.height = Math.min(intentEl.scrollHeight, 96) + 'px';
-  }
-  intentEl.addEventListener('input', autoResizeIntent);
-  setTimeout(autoResizeIntent, 150);
+<!-- ── Project Path Prompt Modal ───────────────────────────── -->
+<div id="path-modal" style="display:none; position:fixed; inset:0; z-index:999; flex-direction:column; justify-content:flex-end; padding:16px; background:rgba(13,16,32,0.92);">
+  <div style="background:#131828; border:1px solid rgba(139,124,247,0.2); border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <i class="ti ti-folder-open" style="color:#8b7cf7; font-size:16px;"></i>
+      <span style="font-size:11px; font-weight:700; letter-spacing:2px; color:#e8eaff;">PROJECT FOLDER</span>
+    </div>
+    <div style="font-size:11px; color:rgba(255,255,255,0.4); line-height:1.6;">Files were detected. Enter your project folder path so their contents are included in the prompt.</div>
+    <input type="text" id="path-modal-input" placeholder="C:\path\to\your\project" style="background:#0d1020; border:1px solid rgba(139,124,247,0.25); border-radius:8px; color:#f0f2ff; font-family:'Segoe UI',sans-serif; font-size:12px; padding:10px 12px; outline:none; width:100%; transition:border-color 0.2s;" onfocus="this.style.borderColor='rgba(139,124,247,0.5)'" onblur="this.style.borderColor='rgba(139,124,247,0.25)'">
+    <div style="display:flex; gap:8px;">
+      <button id="btn-path-skip" style="flex:1; padding:10px; border:1px solid rgba(255,255,255,0.07); border-radius:10px; background:transparent; color:rgba(255,255,255,0.3); font-size:11px; font-weight:700; cursor:pointer; letter-spacing:1px; font-family:'Segoe UI',sans-serif;">SKIP</button>
+      <button id="btn-path-confirm" style="flex:2; padding:10px; border:none; border-radius:10px; background:linear-gradient(90deg,#7c3af7 0%,#4a7af5 100%); color:white; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:1.5px; font-family:'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; gap:6px;"><i class="ti ti-file-code"></i> ATTACH FILES</button>
+    </div>
+  </div>
+</div>
 
-  // Scroll buttons drive the textarea's own scrollTop
-  function scrollIntent(dir) {
-    intentEl.scrollBy({ top: dir * 45, behavior: 'smooth' });
-  }
-
-  // ── File cards renderer ────────────────────────────────
-  const EXT_ICONS = {
-    dart: 'ti-brand-flutter', py: 'ti-brand-python',
-    js: 'ti-brand-javascript', ts: 'ti-brand-typescript',
-    json: 'ti-braces', md: 'ti-markdown',
-    txt: 'ti-file-text', html: 'ti-html',
-    css: 'ti-file-code', yaml: 'ti-file-code', yml: 'ti-file-code',
-  };
-
-  window.renderFileCards = function(filesStr) {
-    const container = document.getElementById('files-cards');
-    const files = filesStr ? filesStr.split(/\s+/).filter(Boolean) : [];
-    if (!files.length) {
-      container.innerHTML = '<div class="no-files">Relevant files (auto-detected)</div>';
-      return;
-    }
-    container.innerHTML = files.map(f => {
-      const name = f.split(/[/\\]/).pop();
-      const ext  = (name.split('.').pop() || '').toLowerCase();
-      const icon = EXT_ICONS[ext] || 'ti-file-code';
-      const label = ext ? ext.toUpperCase() + ' File' : 'File';
-      const safe = f.replace(/'/g, '&#39;');
-      return `<div class="file-card">
-        <i class="ti ${icon} file-card-icon"></i>
-        <div class="file-card-body">
-          <div class="file-card-name" title="${safe}">${name}</div>
-          <div class="file-card-meta">${label}</div>
-        </div>
-        <button class="file-card-copy" onclick="navigator.clipboard.writeText('${safe}')" title="Copy path">
-          <i class="ti ti-copy"></i>
-        </button>
-      </div>`;
-    }).join('');
-  };
-
-  // ── Patch setLog for rich success message ──────────────
-  // popup.js defines setLog globally — we override it here
-  // (this script runs after popup.js, so the override sticks)
-  const _baseSetLog = setLog;
-  function setLog(msg, type) {
-    const log = document.getElementById('log');
-    if (!log) return;
-
-    if (type === 'success' && msg.toLowerCase().includes('analyzed')) {
-      log.innerHTML =
-        'Analyzed — review and hit ' +
-        '<span style="color:#00d47a">ROUTE</span>, ' +
-        '<span style="color:#00d47a">BUILD</span>, or ' +
-        '<span style="color:#00d47a">INVESTIGATE</span>';
-      log.className = 'success';
-      return;
-    }
-    if (type === 'success' && msg.toLowerCase().includes('pasted')) {
-      log.innerHTML = '<span style="color:#00d47a">✓</span> ' + msg;
-      log.className = 'success';
-      return;
-    }
-    log.textContent = msg;
-    log.className = type || '';
-  }
-
-  // ── Refresh button ─────────────────────────────────────
-  document.getElementById('btn-refresh').addEventListener('click', async () => {
-    document.getElementById('error-card').classList.remove('visible');
-    const ok = await readConversation();
-    if (ok && conversationText && conversationText.length > 100) {
-      await analyzeConversation();
-    }
-  });
-
-  // ── Advanced drawer ────────────────────────────────────
-  function toggleAdvanced() {
-    const panel = document.getElementById('advanced-panel');
-    const label = document.getElementById('adv-label');
-    const open  = panel.style.display === 'none';
-    panel.style.display = open ? 'flex' : 'none';
-    label.textContent   = open ? '···  Hide Advanced  ···' : '···  Advanced  ···';
-    if (open) {
-      chrome.storage.local.get(['cf_history']).then(s => {
-        if (s.cf_history?.length) renderHistory(s.cf_history);
-      });
-    }
-  }
-
-  // ── Show error card when page can't be read ────────────
-  const logEl    = document.getElementById('log');
-  const errorCard = document.getElementById('error-card');
-  new MutationObserver(() => {
-    if (logEl.textContent.includes('Could not read') || logEl.textContent.includes('Error reading')) {
-      errorCard.classList.add('visible');
-    } else if (logEl.classList.contains('success') || logEl.classList.contains('info')) {
-      errorCard.classList.remove('visible');
-    }
-  }).observe(logEl, { childList: true, characterData: true, subtree: true });
-</script>
+<!-- ── Prompt Preview Modal ────────────────────────────────── -->
+<div id="preview-modal" style="display:none; position:fixed; inset:0; z-index:1000; flex-direction:column; background:#0d1020;">
+  <div style="padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <i class="ti ti-eye" style="color:#8b7cf7; font-size:16px;"></i>
+      <span style="font-size:11px; font-weight:700; letter-spacing:2px; color:#e8eaff;">REVIEW PROMPT</span>
+    </div>
+    <span id="preview-chars" style="font-size:10px; color:rgba(255,255,255,0.25);">0 chars</span>
+  </div>
+  <textarea id="preview-text" style="flex:1; background:#131828; border:none; color:#f0f2ff; font-family:'Segoe UI',sans-serif; font-size:12px; line-height:1.6; padding:14px 16px; resize:none; outline:none; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;"></textarea>
+  <div style="padding:12px 16px; display:flex; gap:8px; flex-shrink:0; border-top:1px solid rgba(255,255,255,0.05);">
+    <button id="btn-preview-cancel" style="flex:1; padding:11px; border:1px solid rgba(255,255,255,0.07); border-radius:10px; background:#131828; color:rgba(255,255,255,0.35); font-size:11px; font-weight:700; cursor:pointer; letter-spacing:1px; font-family:'Segoe UI',sans-serif;">CANCEL</button>
+    <button id="btn-preview-paste" style="flex:2; padding:11px; border:none; border-radius:10px; background:linear-gradient(90deg,#7c3af7 0%,#4a7af5 100%); color:white; font-size:11px; font-weight:700; cursor:pointer; letter-spacing:1.5px; font-family:'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 4px 24px rgba(100,70,255,0.3);"><i class="ti ti-send"></i> PASTE NOW</button>
+  </div>
+</div>
 </body>
 </html>

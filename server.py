@@ -6,13 +6,18 @@ Chrome extension talks to this on localhost:5050
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from cortexfeed.core.context import resolve_paths, format_for_prompt
-from cortexfeed.core import ollama
-from cortexfeed.config import DEFAULT_MODEL
+from cortexfeed.core import ai
+from cortexfeed.config import DEFAULT_MODEL, AI_BACKEND
 from cortexfeed.api.investigate_api import investigate_bp
 from cortexfeed.api.session_api import session_bp
 
 app = Flask(__name__)
-CORS(app)
+# Only allow requests from the extension and localhost — not arbitrary webpages
+CORS(app, origins=[
+    "http://127.0.0.1:5050",
+    "http://localhost:5050",
+    "null",           # chrome-extension popups send Origin: null
+])
 
 app.register_blueprint(investigate_bp)
 app.register_blueprint(session_bp)
@@ -22,7 +27,7 @@ model = DEFAULT_MODEL
 
 @app.route('/ping', methods=['GET'])
 def ping():
-    return jsonify({'status': 'ok', 'model': model})
+    return jsonify({'status': 'ok', 'model': ai.backend_label(), 'backend': AI_BACKEND})
 
 
 # ── Smart prompt templates ────────────────────────────────
@@ -56,13 +61,31 @@ def build_prompt():
 
     # Resolve file contents
     file_context = ""
+    all_files = []
     if files:
-        all_files = []
+        import glob as _glob
         for pat in files:
-            full = os.path.join(project_path, pat) if project_path else pat
-            all_files.extend(resolve_paths(full))
+            if os.path.isabs(pat):
+                # Full absolute path returned by detect_relevant_files — use directly
+                resolved = resolve_paths(pat)
+            elif project_path:
+                full = os.path.join(project_path, pat)
+                resolved = resolve_paths(full)
+                if not resolved:
+                    # Fallback: recursive search by basename in case relative path is off
+                    fname = os.path.basename(pat)
+                    if fname:
+                        found = _glob.glob(
+                            os.path.join(project_path, '**', fname), recursive=True
+                        )
+                        resolved = found[:1]
+            else:
+                resolved = resolve_paths(pat)
+            print(f"[BUILD] {pat!r} → {len(resolved)} file(s)")
+            all_files.extend(resolved)
         if all_files:
             file_context = format_for_prompt(all_files)
+        print(f"[BUILD] total files={len(all_files)} context_chars={len(file_context)}")
 
     # Build prompt using task-specific template
     intro = PROMPT_INTROS.get(task_type)  # None for general/explain
@@ -111,7 +134,12 @@ def build_prompt():
         sections.append(outro)
 
     built_prompt = "\n\n---\n\n".join(sections)
-    return jsonify({'status': 'ok', 'prompt': built_prompt})
+    return jsonify({
+        'status': 'ok',
+        'prompt': built_prompt,
+        'files_loaded': len(all_files) if files else 0,
+        'files_chars': len(file_context),
+    })
 
 
 @app.route('/chat', methods=['POST'])
@@ -120,7 +148,7 @@ def chat():
     question = data.get('question', '')
     if not question:
         return jsonify({'error': 'No question provided'}), 400
-    response = ollama.ask(question, model=model)
+    response = ai.ask(question, model=model)
     return jsonify({'response': response})
 
 

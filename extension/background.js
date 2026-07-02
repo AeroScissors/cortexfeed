@@ -379,8 +379,15 @@ async function handleRouteAndPaste(ai, prompt) {
 
 function waitForTabAndPaste(tabId, prompt) {
   return new Promise((resolve) => {
+    // Safety timeout: if tab never fires 'complete', bail after 15s
+    const timeout = setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }, 15000);
+
     const listener = (id, changeInfo) => {
       if (id === tabId && changeInfo.status === 'complete') {
+        clearTimeout(timeout);
         chrome.tabs.onUpdated.removeListener(listener);
         delay(1500).then(async () => {
           try { await pasteIntoTab(tabId, prompt); } catch (_) {}

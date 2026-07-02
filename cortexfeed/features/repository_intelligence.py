@@ -13,7 +13,13 @@ from cortexfeed.ui import menu
 def run(model: str | None = None) -> None:
     menu.info("\nRepository Intelligence")
 
-    project_root = Path.cwd()
+    default = Path.cwd()
+    raw = menu.prompt(f"  Project path [{default}]: ").strip()
+    project_root = Path(raw) if raw else default
+
+    if not project_root.exists():
+        menu.error(f"Path not found: {project_root}")
+        return
 
     try:
         facade = build_repository_intelligence(
@@ -26,7 +32,7 @@ def run(model: str | None = None) -> None:
         return
 
     menu.success(
-        f"Repository loaded: {project_root.name}"
+        f"Repository loaded: {project_root.name} ({project_root})"
     )
 
     while True:

@@ -1,4 +1,4 @@
-from cortexfeed.core import ollama
+from cortexfeed.core import ai
 from cortexfeed.config import DEFAULT_MODEL
 
 INTENT_SYSTEM = """
@@ -38,7 +38,7 @@ def analyze_conversation(conversation: str, project_path: str = "", model: str =
     )
 
     import json
-    response = ollama.ask(prompt, model=model, system=INTENT_SYSTEM)
+    response = ai.ask(prompt, model=model, system=INTENT_SYSTEM)
 
     try:
         # strip any markdown fences if model adds them
