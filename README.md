@@ -6,7 +6,7 @@ cortexfeed reads your active AI conversation, detects which files in your projec
 
 ---
 
-## How it works
+## ⚡ How it works
 
 1. You're debugging in ChatGPT, Claude, or Gemini
 2. Click the cortexfeed extension icon
@@ -18,7 +18,7 @@ cortexfeed reads your active AI conversation, detects which files in your projec
 
 ---
 
-## Works with
+## 🌐 Works with
 
 - [ChatGPT](https://chatgpt.com)
 - [Claude](https://claude.ai)
@@ -26,7 +26,7 @@ cortexfeed reads your active AI conversation, detects which files in your projec
 
 ---
 
-## Requirements
+## 🛠️ Requirements
 
 - Python 3.10+
 - [Ollama](https://ollama.com) installed and running
@@ -34,7 +34,7 @@ cortexfeed reads your active AI conversation, detects which files in your projec
 
 ---
 
-## Setup
+## 🚀 Setup
 
 ### 1. Install Python dependencies
 
@@ -74,7 +74,7 @@ The cortexfeed icon will appear in your toolbar.
 
 ---
 
-## First use
+## 🎯 First use
 
 1. Open ChatGPT (or Claude / Gemini) and start a conversation about your code
 2. Click the cortexfeed icon
@@ -85,7 +85,7 @@ The cortexfeed icon will appear in your toolbar.
 
 ---
 
-## Keyboard shortcuts
+## ⌨️ Keyboard shortcuts
 
 | Shortcut | What it does |
 |----------|--------------|
@@ -94,7 +94,7 @@ The cortexfeed icon will appear in your toolbar.
 
 ---
 
-## Config
+## ⚙️ Config
 
 Edit `.env` to change defaults:
 
@@ -111,7 +111,7 @@ Popular options: `mistral`, `llama3`, `codellama`, `phi3`
 
 ---
 
-## FAQ
+## ❓ FAQ
 
 **Does this send my code anywhere?**
 No. cortexfeed runs entirely on your machine. Ollama is local. The server is local. Nothing is sent to any external service.
@@ -127,7 +127,7 @@ Make sure `python server.py` is running in a terminal. Check that Ollama is also
 
 ---
 
-## Project structure
+## 📁 Project structure
 
 ```
 cortexfeed/
@@ -144,6 +144,6 @@ cortexfeed/
 
 ---
 
-## License
+## 📄 License
 
 MIT
